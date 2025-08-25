@@ -6,10 +6,10 @@ import datetime
 START_DATE = '2022-01-01'
 END_DATE = '2025-08-25'
 BUSINESS_LINES = {
-    'Commercial Auto': 0.65,
-    'General Liability': 0.75,
-    'Workers Compensation': 0.55,
-    'Commercial Property': 0.45
+    'Commercial Auto': {'base_lr': 0.65, 'dev_factor': 1.15},
+    'General Liability': {'base_lr': 0.75, 'dev_factor': 1.30},
+    'Workers Compensation': {'base_lr': 0.55, 'dev_factor': 1.10},
+    'Commercial Property': {'base_lr': 0.45, 'dev_factor': 1.05} # Property lines develop less
 }
 REGIONS = ['Northeast', 'Southeast', 'Midwest', 'West']
 
@@ -62,7 +62,6 @@ df_keys = pd.MultiIndex.from_product([
 
 
 # Generate financial data
-# This part simulates realistic-looking data with trends and noise.
 np.random.seed(42)
 num_records = len(df_keys)
 
@@ -74,20 +73,26 @@ df_merged = pd.merge(df_keys, dim_business_line, on='business_line_key')
 df_merged = pd.merge(df_merged, dim_date, on='date_key')
 
 # Calculate incurred loss based on the base loss ratio for each business line
-# We add some noise and seasonality for realism
-base_loss_ratios = df_merged['line_name'].map(BUSINESS_LINES)
-seasonal_factor = 1 + np.sin(df_merged['month'] * 2 * np.pi / 12) * 0.1 # +/- 10% seasonality
-random_noise = np.random.normal(1, 0.05, num_records) # Random noise
-trend_factor = 1 + (df_merged['full_date'] - df_merged['full_date'].min()).dt.days / 1000 * 0.05 # Slight upward trend
+base_loss_ratios = df_merged['line_name'].map(lambda x: BUSINESS_LINES[x]['base_lr'])
+seasonal_factor = 1 + np.sin(df_merged['month'] * 2 * np.pi / 12) * 0.1
+random_noise = np.random.normal(1, 0.05, num_records)
+trend_factor = 1 + (df_merged['full_date'] - df_merged['full_date'].min()).dt.days / 1000 * 0.05
 
-# Calculate incurred loss
 df_merged['incurred_loss'] = df_merged['earned_premium'] * base_loss_ratios * seasonal_factor * random_noise * trend_factor
 
+# --- NEW: Simulate Developed Loss ---
+# This simulates the actuarial process of loss development (e.g., using a chain-ladder method)
+# We apply a development factor to the incurred loss.
+dev_factors = df_merged['line_name'].map(lambda x: BUSINESS_LINES[x]['dev_factor'])
+# Add some noise to the development
+dev_noise = np.random.normal(1, 0.02, num_records)
+df_merged['developed_loss'] = df_merged['incurred_loss'] * dev_factors * dev_noise
+
+
 # Finalize the fact table
-fact_financials = df_merged[['date_key', 'business_line_key', 'region_key', 'earned_premium', 'incurred_loss']]
+fact_financials = df_merged[['date_key', 'business_line_key', 'region_key', 'earned_premium', 'incurred_loss', 'developed_loss']]
 fact_financials = fact_financials.round(2)
 
 fact_financials.to_csv('fact_financials.csv', index=False)
 print("... `fact_financials.csv` created successfully.")
 print("\nData generation complete!")
-
