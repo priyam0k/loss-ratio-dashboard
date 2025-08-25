@@ -4,7 +4,7 @@ An interactive dashboard for visualizing P&C insurance loss ratio trends, built 
 
 **➡️ Live Demo: [loss-ratio-dashboard.onrender.com](https://loss-ratio-dashboard.onrender.com/)**
 
-![Dashboard Screenshot]("/dashboard.PNG")
+![Dashboard Screenshot](dashboard.PNG)
 
 ---
 
